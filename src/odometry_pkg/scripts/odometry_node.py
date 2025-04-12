@@ -8,7 +8,7 @@ from tu_paquete.msg import WheelInfo
 # Importación de módulos propios
 from controller import angulo_ackermann, find_look_ahead_point
 from efk import compute_F, predict_state
-from utils import get_imu_data, compute_quaternion, VESCRPMListener, IMUListener
+from utils import compute_quaternion, VESCRPMListener, IMUListener
 
 def main():
     rospy.init_node("odometry_node")
@@ -45,8 +45,6 @@ def main():
 
     rpm_listener = VESCRPMListener()
     imu_listener = IMUListener()
-
-    imu_data = IMUListener.get_imu_data()
 
     while not rospy.is_shutdown():
         if idxWaypoint >= len(waypoints) - 1:
@@ -87,8 +85,8 @@ def main():
 
         # Predicción y corrección usando EKF
         u = np.array([real_velocity, delta]) #Preguntarle a DIOS
-        xhat_pred = predict_state(xhat, u, imu_data , L, dt)
-        F = compute_F(xhat, u, imu_data, dt)
+        xhat_pred = predict_state(xhat, u, L, dt)
+        F = compute_F(xhat, u, dt)
         P_pred = F @ P @ F.T + Q
 
         # Matriz de observación
