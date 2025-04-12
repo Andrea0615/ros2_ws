@@ -7,8 +7,8 @@ from tu_paquete.msg import WheelInfo
 
 # Importación de módulos propios
 from controller import angulo_ackermann, find_look_ahead_point
-from ekf import compute_F, predict_state
-from utils import get_imu_data, compute_quaternion, realSpeedSetter, VESCRPMListener, IMUListener
+from efk import compute_F, predict_state
+from utils import get_imu_data, compute_quaternion, VESCRPMListener, IMUListener
 
 def main():
     rospy.init_node("odometry_node")
@@ -19,13 +19,12 @@ def main():
     dt = 0.05
     lookAheadDist = 1.5
     desiredSpeed = 0.4
-    realSpeed = realSpeedSetter()
 
     L = 0.89  # distancia entre ejes
     wheelDiameter = 0.24
     wheelCircumference = np.pi * wheelDiameter
 
-    # Trayectoria deseada (lista de waypoints)
+    # Trayectoria deseada (lista de waypoints) / Volver a sacar
     waypoints = np.array([
         [1.295, 1.5], [1.295, 6.5], [3.777, 6.5],
         [3.777, 1.5], [6.475, 1.5], [6.475, 6.5],
@@ -36,9 +35,9 @@ def main():
     odom_x = 0.0
     odom_y = 0.0
     odom_theta = np.radians(0.0)
-    xhat = np.array([odom_x, odom_y, odom_theta, 0.0, 0.0, 0.0])
+    xhat = np.array([odom_x, odom_y, odom_theta, 0.0, 0.0, 0.0]) #np?
     P = np.identity(6) * 0.01
-    Q = np.diag([0.001, 0.001, 0.0005, 0.001, 0.001, 0.0001])
+    Q = np.diag([0.001, 0.001, 0.0005, 0.001, 0.001, 0.0001]) #X que valores extra en especifico?
     R = np.diag([0.02, 0.02, 0.01, 0.05, 0.005])
 
     idxWaypoint = 0
@@ -46,6 +45,8 @@ def main():
 
     rpm_listener = VESCRPMListener()
     imu_listener = IMUListener()
+
+    imu_data = IMUListener.get_imu_data()
 
     while not rospy.is_shutdown():
         if idxWaypoint >= len(waypoints) - 1:
@@ -68,17 +69,14 @@ def main():
 
         RPM = (desiredSpeed / wheelCircumference) * 60
 
-        # Obtención de datos de la IMU
-        imu_data = get_imu_data()
-
         # Simulación de medición con ruido
         noise = np.random.normal(0, np.sqrt(np.diag(R)))
         z = np.array([
             odom_x,
             odom_y,
             odom_theta,
-            realSpeed + imu_data['accel_filtered']['x'],
-            imu_data['gyro_filtered']['z']
+            real_velocity + imu_listener['accel_filtered']['x'],
+            imu_listener['gyro_filtered']['z']
         ]) + noise
 
         # Actualización de la odometría básica
@@ -89,7 +87,7 @@ def main():
 
         # Predicción y corrección usando EKF
         u = np.array([real_velocity, delta]) #Preguntarle a DIOS
-        xhat_pred = predict_state(xhat, u, imu_data, L, dt)
+        xhat_pred = predict_state(xhat, u, imu_data , L, dt)
         F = compute_F(xhat, u, imu_data, dt)
         P_pred = F @ P @ F.T + Q
 

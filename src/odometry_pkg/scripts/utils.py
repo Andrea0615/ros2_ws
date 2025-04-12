@@ -11,7 +11,7 @@ class IMUListener:
         self.yaw = 0.0
         self.pitch = 0.0
         self.roll = 0.0
-        self.accel_filtered = {'x': 0.0, 'y': 0.0, 'z': 0.0}
+        self.accel_filtered = {'x': 0.0, 'y': 0.0, 'z': 0.0} #Cambiar a matriz
         self.gyro_filtered = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 
         # Subscribe to each ROS topic published by the ESP32
@@ -39,6 +39,15 @@ class IMUListener:
     def gx_callback(self, msg): self.gyro_filtered['x'] = msg.data
     def gy_callback(self, msg): self.gyro_filtered['y'] = msg.data
     def gz_callback(self, msg): self.gyro_filtered['z'] = msg.data
+    def get_imu_vector(self):
+        return np.array([
+            self.yaw,
+            self.pitch,
+            self.roll,
+            *self.accel_filtered,
+            *self.gyro_filtered
+        ])
+
 
 def compute_quaternion(theta):
     return tft.quaternion_from_euler(0, 0, theta)
