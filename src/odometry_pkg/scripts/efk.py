@@ -1,14 +1,14 @@
 # ekf.py
 import numpy as np
-from utils import IMUListener
-
-imu_listener = IMUListener()
 
 def compute_F(x, u, imu_data, dt):
+    """
+    Calcula la matriz jacobiana F para el filtro de Kalman extendido.
+    """
     v = u[0]
     theta = x[2]
-    a_x = imu_listener['accel_filtered']['x']
-    a_y = imu_listener['accel_filtered']['y']
+    a_x = imu_data['accel_filtered']['x']
+    a_y = imu_data['accel_filtered']['y']
 
     F = np.array([
         [1, 0, -v * np.sin(theta) * dt, dt, 0, 0],
@@ -21,13 +21,15 @@ def compute_F(x, u, imu_data, dt):
     return F
 
 def predict_state(x, u, imu_data, L, dt):
-
+    """
+    Predice el siguiente estado del sistema usando la función de transición.
+    """
     v = u[0]
     # delta se incluye en u pero no se usa explícitamente en este modelo
     theta = x[2]
-    a_x = imu_listener['accel_filtered']['x']
-    a_y = imu_listener['accel_filtered']['y']
-    omega = imu_listener['gyro_filtered']['z']
+    a_x = imu_data['accel_filtered']['x']
+    a_y = imu_data['accel_filtered']['y']
+    omega = imu_data['gyro_filtered']['z']
 
     x_next = np.array([
         x[0] + x[3] * dt,
