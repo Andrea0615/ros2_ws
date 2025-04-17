@@ -97,4 +97,34 @@ def generar_ruta_prioritaria(piedras_lista, use_push_front=False):
     except Exception as e:
         rospy.logerr(f"Error processing point: {e}")
         return None
+    
+def find_stopping_point(rock_pixel_x, rock_distance):
+    # --- Parámetros de entrada ---
+    FOV_deg = 60              # <-- Define el campo de visión horizontal de la cámara en grados
+    image_width = 640         # <-- Define el ancho de la imagen en píxeles
+    r_stop = 1.0              # <-- Define la distancia a la que quieres detenerte antes de llegar a la roca (en metros)
 
+    # --- Paso 1: Convertir pixel a ángulo ---
+    degrees_per_pixel = FOV_deg / image_width
+    center_pixel = image_width / 2
+    pixel_offset = rock_pixel_x - center_pixel
+    angle_deg = pixel_offset * degrees_per_pixel
+    angle_rad = np.deg2rad(angle_deg)
+
+    # --- Paso 2: Calcular la posición de la roca ---
+    x_rock = rock_distance * np.cos(angle_rad)
+    y_rock = rock_distance * np.sin(angle_rad)
+
+    # --- Paso 3: Calcular el punto de paro ---
+    dx = x_rock
+    dy = y_rock
+    dist_to_rock = np.hypot(dx, dy)
+    unit_dx = dx / dist_to_rock
+    unit_dy = dy / dist_to_rock
+
+    x_stop = x_rock - r_stop * unit_dx
+    y_stop = y_rock - r_stop * unit_dy
+
+    stopping_point = [x_stop,y_stop]
+
+    return stopping_point
