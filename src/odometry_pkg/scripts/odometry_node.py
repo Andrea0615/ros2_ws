@@ -2,7 +2,7 @@ import rospy
 import numpy as np
 from nav_msgs.msg import Odometry #Cambiar después
 from odometry.msg import WheelInfo #Cambiar después
-from controller import angulo_ackermann, find_look_ahead_point, generar_ruta_prioritaria
+from controller import angulo_ackermann, find_look_ahead_point, generar_ruta_prioritaria, find_stopping_point
 from efk import compute_F, predict_state
 from utils import compute_quaternion, VESCRPMListener, IMUListener, CoordinatesListener, SynchronizedData, initialize_serial,send_rpm_command
 
@@ -49,7 +49,10 @@ def main():
     while not rospy.is_shutdown():
         # Get next waypoint
         piedras = coordenadas_camara.get_new_coords()
-        next_point = generar_ruta_prioritaria(piedras, use_push_front=False)
+        piedra_x = piedras[]
+        piedra_dist = piedras[]
+        stopping_point = find_stopping_point(piedra_x, piedra_dist)
+        next_point = generar_ruta_prioritaria(stopping_point, use_push_front=False)
         
         if next_point is None and not waypoints:
             rospy.loginfo("No more waypoints or stones.")

@@ -100,9 +100,9 @@ def generar_ruta_prioritaria(piedras_lista, use_push_front=False):
     
 def find_stopping_point(rock_pixel_x, rock_distance):
     # --- Parámetros de entrada ---
-    FOV_deg = 60              # <-- Define el campo de visión horizontal de la cámara en grados
-    image_width = 640         # <-- Define el ancho de la imagen en píxeles
-    r_stop = 1.0              # <-- Define la distancia a la que quieres detenerte antes de llegar a la roca (en metros)
+    FOV_deg = 60              # <-- Define el campo de visión horizontal de la cámara en grados MODIFICA
+    image_width = 640         # <-- Define el ancho de la imagen en píxeles MODIFICA
+    r_stop = 1.0              # <-- Define la distancia a la que quieres detenerte antes de llegar a la roca (en metros) MODIFICA
 
     # --- Paso 1: Convertir pixel a ángulo ---
     degrees_per_pixel = FOV_deg / image_width
