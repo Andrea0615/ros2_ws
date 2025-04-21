@@ -1,0 +1,4 @@
+<launch>
+    <node name="rock_marker_node" pkg="rock_marker_publisher" type="rock_marker_node.py" output="screen" />
+</launch>
+
