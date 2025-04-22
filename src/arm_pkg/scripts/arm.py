@@ -46,5 +46,5 @@ def main():
     rospy.loginfo("Nodo de control del brazo iniciado.")
     rospy.spin()
 
-if _name_ == '_main_':
+if __name__ == '_main_':
     main()

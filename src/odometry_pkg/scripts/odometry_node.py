@@ -51,7 +51,7 @@ def main():
         piedras = coordenadas_camara.get_new_coords()
         piedra_x = piedras[]
         piedra_dist = piedras[]
-        stopping_point = find_stopping_point(piedra_x, piedra_dist)
+        stopping_point = find_stopping_point(piedra_x, piedra_dist, xhat[0], xhat[1], xhat[2])
         if robot_stop(stopping_point, odom_x, odom_y):
             send_rpm_command(ser, 0, 0, 0, 0)  # Detiene las 4 ruedas
             rospy.loginfo("Robot detenido en el punto de parada.")

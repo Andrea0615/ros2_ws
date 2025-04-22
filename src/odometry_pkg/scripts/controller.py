@@ -98,36 +98,38 @@ def generar_ruta_prioritaria(piedras_lista, use_push_front=False):
         rospy.logerr(f"Error processing point: {e}")
         return None
     
-def find_stopping_point(rock_pixel_x, rock_distance):
+def find_stopping_point(rock_pixel_x, rock_distance, current_x, current_y, current_theta):
     # --- Parámetros de entrada ---
-    FOV_deg = 60              # <-- Define el campo de visión horizontal de la cámara en grados MODIFICA
-    image_width = 640         # <-- Define el ancho de la imagen en píxeles MODIFICA
-    r_stop = 1.0              # <-- Define la distancia a la que quieres detenerte antes de llegar a la roca (en metros) MODIFICA
+    FOV_deg     = 60      # Campo de visión horizontal de la cámara (º)
+    image_width = 640     # Ancho de la imagen (px)
+    r_stop      = 1.0     # Distancia de seguridad antes de la roca (m)
 
-    # --- Paso 1: Convertir pixel a ángulo ---
-    degrees_per_pixel = FOV_deg / image_width
-    center_pixel = image_width / 2
-    pixel_offset = rock_pixel_x - center_pixel
-    angle_deg = pixel_offset * degrees_per_pixel
-    angle_rad = np.deg2rad(angle_deg)
+    # --- Paso 1: Pixel --> ángulo en radianes ---
+    deg_per_px   = FOV_deg / image_width
+    center_px    = image_width / 2
+    pixel_offset = rock_pixel_x - center_px
+    angle_rad    = np.deg2rad(pixel_offset * deg_per_px)
 
-    # --- Paso 2: Calcular la posición de la roca ---
+    # --- Paso 2: Posición de la roca en marco robot (x hacia adelante, y lateral) ---
     x_rock = rock_distance * np.cos(angle_rad)
     y_rock = rock_distance * np.sin(angle_rad)
 
-    # --- Paso 3: Calcular el punto de paro ---
-    dx = x_rock
-    dy = y_rock
-    dist_to_rock = np.hypot(dx, dy)
-    unit_dx = dx / dist_to_rock
-    unit_dy = dy / dist_to_rock
+    # --- Paso 3: Punto de paro en marco robot ---
+    dist     = np.hypot(x_rock, y_rock)
+    ux, uy   = x_rock/dist, y_rock/dist
+    x_stop_r = x_rock - r_stop * ux
+    y_stop_r = y_rock - r_stop * uy
 
-    x_stop = x_rock - r_stop * unit_dx
-    y_stop = y_rock - r_stop * unit_dy
+    # --- Paso 4: Transformación a coordenadas globales ---
+    # current_theta en radianes; 0 = eje X global
+    ct = np.cos(current_theta)
+    st = np.sin(current_theta)
 
-    stopping_point = [x_stop,y_stop]
+    x_stop_global = current_x + ( x_stop_r * ct - y_stop_r * st )
+    y_stop_global = current_y + ( x_stop_r * st + y_stop_r * ct )
 
-    return stopping_point
+    return [x_stop_global, y_stop_global]
+
 def robot_stop(stopping_point, current_x, current_y, threshold=0.3):
     stop_x, stop_y = stopping_point
     distance = np.hypot(stop_x - current_x, stop_y - current_y)
