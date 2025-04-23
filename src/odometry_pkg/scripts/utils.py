@@ -123,72 +123,78 @@ class IMUListener:
 def compute_quaternion(theta):
     return tft.quaternion_from_euler(0, 0, theta)
 
+
 class RPMReader:
-    def __init__(self, port, baudrate=115200): #Pasarle el puerto cuando se llama
-        self.rpm_1 = 0.0  # Front Left
-        self.rpm_3 = 0.0  # Front Right
-        self.rpm_2 = 0.0  # Rear Left
-        self.rpm_4 = 0.0  # Rear Right
+    def __init__(self, window_size=50, alpha=0.1):
+        self.rpm_fl = 0.0
+        self.rpm_fr = 0.0
+        self.rpm_rl = 0.0
+        self.rpm_rr = 0.0
 
-        self.port = port
-        self.baudrate = baudrate
-        self.ser = None
-        self.thread = None
-        self.running = False
+        self.window_size = window_size
+        self.alpha = alpha
 
-        self.lock = threading.Lock()
+        self.buffer_fl = []
+        self.buffer_fr = []
+        self.buffer_rl = []
+        self.buffer_rr = []
 
-    def start(self):
-        try:
-            self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
-            self.running = True
-            self.thread = threading.Thread(target=self.read_loop)
-            self.thread.daemon = True
-            self.thread.start()
-            print("[RPMReader] Lectura serial iniciada.")
-        except serial.SerialException as e:
-            print("[RPMReader] Error al abrir puerto serial:", e)
-
-    def stop(self):
-        self.running = False
-        if self.thread:
-            self.thread.join()
-        if self.ser and self.ser.is_open:
-            self.ser.close()
-            print("[RPMReader] Lectura serial detenida.")
-
-    def read_loop(self):
-        while self.running:
-            try:
-                line = self.ser.readline().decode('utf-8').strip()
-                self.update_from_serial(line)
-            except Exception as e:
-                print("[RPMReader] Error leyendo del serial:", e)
+        self.std_fl = 0.0
+        self.std_fr = 0.0
+        self.std_rl = 0.0
+        self.std_rr = 0.0
 
     def update_from_serial(self, line):
         if line.startswith("RPM_ALL"):
             try:
                 parts = line.strip().split(",")
                 if len(parts) == 5:
-                    with self.lock:
-                        self.rpm_fl = float(parts[1])
-                        self.rpm_fr = float(parts[2])
-                        self.rpm_rl = float(parts[3])
-                        self.rpm_rr = float(parts[4])
+                    self.rpm_fl = float(parts[1])
+                    self.rpm_fr = float(parts[2])
+                    self.rpm_rl = float(parts[3])
+                    self.rpm_rr = float(parts[4])
+
+                    self._update_buffer_and_std(self.rpm_fl, self.buffer_fl, 'fl')
+                    self._update_buffer_and_std(self.rpm_fr, self.buffer_fr, 'fr')
+                    self._update_buffer_and_std(self.rpm_rl, self.buffer_rl, 'rl')
+                    self._update_buffer_and_std(self.rpm_rr, self.buffer_rr, 'rr')
                 else:
                     print("[RPMReader] Formato incorrecto:", line)
             except (ValueError, IndexError) as e:
                 print("[RPMReader] Error al parsear la línea:", line)
                 print("→", e)
 
+    def _update_buffer_and_std(self, value, buffer, wheel):
+        buffer.append(value)
+        if len(buffer) > self.window_size:
+            buffer.pop(0)
+
+        if len(buffer) == self.window_size:
+            std = np.std(buffer)
+            if wheel == 'fl':
+                self.std_fl = self._ema(self.std_fl, std)
+            elif wheel == 'fr':
+                self.std_fr = self._ema(self.std_fr, std)
+            elif wheel == 'rl':
+                self.std_rl = self._ema(self.std_rl, std)
+            elif wheel == 'rr':
+                self.std_rr = self._ema(self.std_rr, std)
+
+    def _ema(self, prev, current):
+        return self.alpha * current + (1 - self.alpha) * prev
+
     def get_all_rpms(self):
-        with self.lock:
-            return self.rpm_1, self.rpm_3, self.rpm_2, self.rpm_4
+        return self.rpm_fl, self.rpm_fr, self.rpm_rl, self.rpm_rr
+
+    def get_all_stds(self):
+        return self.std_fl, self.std_fr, self.std_rl, self.std_rr
 
     def __str__(self):
-        with self.lock:
-            return (f"RPMs - FL: {self.rpm_1:.2f}, FR: {self.rpm_3:.2f}, "
-                    f"RL: {self.rpm_2:.2f}, RR: {self.rpm_4:.2f}")
+        return (f"RPMs - FL: {self.rpm_fl:.2f} (σ={self.std_fl:.2f}), "
+                f"FR: {self.rpm_fr:.2f} (σ={self.std_fr:.2f}), "
+                f"RL: {self.rpm_rl:.2f} (σ={self.std_rl:.2f}), "
+                f"RR: {self.rpm_rr:.2f} (σ={self.std_rr:.2f})")
+
 
 
 class CoordinatesListener:
