@@ -19,8 +19,11 @@ def main():
     rate = rospy.Rate(20)  # 20 Hz
     
     start_time = time.time()  # Guardar el tiempo de inicio
-
-
+    
+    #Agregar clases para lectura de sensores
+    sync_data = SynchronizedData()
+    imu_listener = IMUListener(sync_data)
+    rpm_listener = RPMReader(sync_data, port= SERIAL_PORT) 
     dt = 0.05
     lookAheadDist = 1.5
     desiredSpeed = 0.4
@@ -41,9 +44,6 @@ def main():
     waypoints = []  # Dynamic waypoint list
     coordenadas_camara = CoordinatesListener()
     
-    sync_data = SynchronizedData()
-    imu_listener = IMUListener(sync_data)
-    rpm_listener = RPMReader(sync_data, port= SERIAL_PORT) 
 
     # Inicializar la conexión serial para enviar comandos de RPM
     ser = initialize_serial(SERIAL_PORT, BAUD_RATE, TIMEOUT)

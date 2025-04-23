@@ -126,38 +126,38 @@ def compute_quaternion(theta):
 
 class RPMReader:
     def __init__(self, window_size=50, alpha=0.1):
-        self.rpm_fl = 0.0
-        self.rpm_fr = 0.0
-        self.rpm_rl = 0.0
-        self.rpm_rr = 0.0
+        self.rpm_1 = 0.0
+        self.rpm_3 = 0.0
+        self.rpm_2 = 0.0
+        self.rpm_4 = 0.0
 
         self.window_size = window_size
         self.alpha = alpha
 
-        self.buffer_fl = []
-        self.buffer_fr = []
-        self.buffer_rl = []
-        self.buffer_rr = []
+        self.buffer_1 = []
+        self.buffer_3 = []
+        self.buffer_2 = []
+        self.buffer_4 = []
 
-        self.std_fl = 0.0
-        self.std_fr = 0.0
-        self.std_rl = 0.0
-        self.std_rr = 0.0
+        self.std_1 = 0.0
+        self.std_3 = 0.0
+        self.std_2 = 0.0
+        self.std_4 = 0.0
 
     def update_from_serial(self, line):
         if line.startswith("RPM_ALL"):
             try:
                 parts = line.strip().split(",")
                 if len(parts) == 5:
-                    self.rpm_fl = float(parts[1])
-                    self.rpm_fr = float(parts[2])
-                    self.rpm_rl = float(parts[3])
-                    self.rpm_rr = float(parts[4])
+                    self.rpm_1 = float(parts[1])
+                    self.rpm_3 = float(parts[2])
+                    self.rpm_2 = float(parts[3])
+                    self.rpm_4 = float(parts[4])
 
-                    self._update_buffer_and_std(self.rpm_fl, self.buffer_fl, 'fl')
-                    self._update_buffer_and_std(self.rpm_fr, self.buffer_fr, 'fr')
-                    self._update_buffer_and_std(self.rpm_rl, self.buffer_rl, 'rl')
-                    self._update_buffer_and_std(self.rpm_rr, self.buffer_rr, 'rr')
+                    self._update_buffer_and_std(self.rpm_1, self.buffer_1, 'fl')
+                    self._update_buffer_and_std(self.rpm_3, self.buffer_3, 'fr')
+                    self._update_buffer_and_std(self.rpm_2, self.buffer_2, 'rl')
+                    self._update_buffer_and_std(self.rpm_4, self.buffer_4, 'rr')
                 else:
                     print("[RPMReader] Formato incorrecto:", line)
             except (ValueError, IndexError) as e:
@@ -171,29 +171,29 @@ class RPMReader:
 
         if len(buffer) == self.window_size:
             std = np.std(buffer)
-            if wheel == 'fl':
-                self.std_fl = self._ema(self.std_fl, std)
-            elif wheel == 'fr':
-                self.std_fr = self._ema(self.std_fr, std)
-            elif wheel == 'rl':
-                self.std_rl = self._ema(self.std_rl, std)
-            elif wheel == 'rr':
-                self.std_rr = self._ema(self.std_rr, std)
+            if wheel == '1':
+                self.std_1 = self._ema(self.std_1, std)
+            elif wheel == '3':
+                self.std_3 = self._ema(self.std_3, std)
+            elif wheel == '2':
+                self.std_2 = self._ema(self.std_2, std)
+            elif wheel == '4':
+                self.std_4 = self._ema(self.std_4, std)
 
     def _ema(self, prev, current):
         return self.alpha * current + (1 - self.alpha) * prev
 
     def get_all_rpms(self):
-        return self.rpm_fl, self.rpm_fr, self.rpm_rl, self.rpm_rr
+        return self.rpm_1, self.rpm_3, self.rpm_2, self.rpm_4
 
     def get_all_stds(self):
-        return self.std_fl, self.std_fr, self.std_rl, self.std_rr
+        return self.std_1, self.std_3, self.std_2, self.std_4
 
     def __str__(self):
-        return (f"RPMs - FL: {self.rpm_fl:.2f} (σ={self.std_fl:.2f}), "
-                f"FR: {self.rpm_fr:.2f} (σ={self.std_fr:.2f}), "
-                f"RL: {self.rpm_rl:.2f} (σ={self.std_rl:.2f}), "
-                f"RR: {self.rpm_rr:.2f} (σ={self.std_rr:.2f})")
+        return (f"RPMs - FL: {self.rpm_1:.2f} (σ={self.std_1:.2f}), "
+                f"FR: {self.rpm_3:.2f} (σ={self.std_3:.2f}), "
+                f"RL: {self.rpm_2:.2f} (σ={self.std_2:.2f}), "
+                f"RR: {self.rpm_4:.2f} (σ={self.std_4:.2f})")
 
 
 
