@@ -46,7 +46,7 @@ class ListQueueSimple:
             return len(self.items)
 
 class IMUListener:
-    def __init__(self, serial_port='/dev/ttyUSB0', baud_rate=115200, timeout=1):
+    def __init__(self, serial_port='/dev/ttyUSB0', baud_rate=115200, timeout=1): #Cambiar puerto serial
         self.serial_port = serial_port
         self.baud_rate = baud_rate
         self.timeout = timeout
@@ -124,11 +124,11 @@ def compute_quaternion(theta):
     return tft.quaternion_from_euler(0, 0, theta)
 
 class RPMReader:
-    def __init__(self, port, baudrate=115200):
-        self.rpm_fl = 0.0  # Front Left
-        self.rpm_fr = 0.0  # Front Right
-        self.rpm_rl = 0.0  # Rear Left
-        self.rpm_rr = 0.0  # Rear Right
+    def __init__(self, port, baudrate=115200): #Pasarle el puerto cuando se llama
+        self.rpm_1 = 0.0  # Front Left
+        self.rpm_3 = 0.0  # Front Right
+        self.rpm_2 = 0.0  # Rear Left
+        self.rpm_4 = 0.0  # Rear Right
 
         self.port = port
         self.baudrate = baudrate
