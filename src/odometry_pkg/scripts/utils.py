@@ -7,7 +7,7 @@ from std_msgs.msg import Float32
 from geometry_msgs.msg import Point
 from threading import Lock
 import time 
-import pyserial
+import serial 
 
 class ListQueueSimple:
     """
@@ -46,49 +46,149 @@ class ListQueueSimple:
             return len(self.items)
 
 class IMUListener:
-    def __init__(self, sync_obj):
-        self.sync = sync_obj
+    def __init__(self, serial_port='/dev/ttyUSB0', baud_rate=115200, timeout=1):
+        self.serial_port = serial_port
+        self.baud_rate = baud_rate
+        self.timeout = timeout
+        self.ser = self.initialize_serial()
+
         self.imu_data = {
             'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0,
             'accel': {'x': 0.0, 'y': 0.0, 'z': 0.0},
-            'gyro': {'x': 0.0, 'y': 0.0, 'z': 0.0}
+            'gyro': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+            'std_dev': {
+                'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0,
+                'accel_x': 0.0, 'accel_y': 0.0, 'accel_z': 0.0,
+                'gyro_x': 0.0, 'gyro_y': 0.0, 'gyro_z': 0.0
+            }
         }
 
-        rospy.Subscriber("imu/yaw", Float32, self.yaw_callback)
-        rospy.Subscriber("imu/pitch", Float32, self.pitch_callback)
-        rospy.Subscriber("imu/roll", Float32, self.roll_callback)
+    def initialize_serial(self):
+        try:
+            ser = serial.Serial(self.serial_port, self.baud_rate, timeout=self.timeout)
+            print(f"Conectado al puerto {self.serial_port} a {self.baud_rate} baudios.")
+            time.sleep(2)
+            return ser
+        except serial.SerialException as e:
+            print(f"Error al conectar al puerto {self.serial_port}: {e}")
+            return None
 
-        rospy.Subscriber("imu/accel_x", Float32, self.ax_callback)
-        rospy.Subscriber("imu/accel_y", Float32, self.ay_callback)
-        rospy.Subscriber("imu/accel_z", Float32, self.az_callback)
+    def read_data(self):
+        if self.ser is None or not self.ser.is_open:
+            print("Error: No hay conexión serial activa.")
+            return
 
-        rospy.Subscriber("imu/gyro_x", Float32, self.gx_callback)
-        rospy.Subscriber("imu/gyro_y", Float32, self.gy_callback)
-        rospy.Subscriber("imu/gyro_z", Float32, self.gz_callback)
+        try:
+            line = self.ser.readline().decode('utf-8').strip()
+            if line:
+                data = line.split(',')
+                label = data[0]
 
-    def yaw_callback(self, msg): self.imu_data['yaw'] = msg.data; self.sync.update_imu(self.imu_data.copy())
-    def pitch_callback(self, msg): self.imu_data['pitch'] = msg.data
-    def roll_callback(self, msg): self.imu_data['roll'] = msg.data
+                if label == "YPR":
+                    self.imu_data['yaw'] = float(data[1])
+                    self.imu_data['pitch'] = float(data[2])
+                    self.imu_data['roll'] = float(data[3])
 
-    def ax_callback(self, msg): self.imu_data['accel']['x'] = msg.data
-    def ay_callback(self, msg): self.imu_data['accel']['y'] = msg.data
-    def az_callback(self, msg): self.imu_data['accel']['z'] = msg.data
+                elif label == "ACC":
+                    self.imu_data['accel']['x'] = float(data[1])
+                    self.imu_data['accel']['y'] = float(data[2])
+                    self.imu_data['accel']['z'] = float(data[3])
 
-    def gx_callback(self, msg): self.imu_data['gyro']['x'] = msg.data
-    def gy_callback(self, msg): self.imu_data['gyro']['y'] = msg.data
-    def gz_callback(self, msg): self.imu_data['gyro']['z'] = msg.data
+                elif label == "GYRO":
+                    self.imu_data['gyro']['x'] = float(data[1])
+                    self.imu_data['gyro']['y'] = float(data[2])
+                    self.imu_data['gyro']['z'] = float(data[3])
+
+                elif label == "STD_ACC":
+                    self.imu_data['std_dev']['accel_x'] = float(data[1])
+                    self.imu_data['std_dev']['accel_y'] = float(data[2])
+                    self.imu_data['std_dev']['accel_z'] = float(data[3])
+
+                elif label == "STD_GYRO":
+                    self.imu_data['std_dev']['gyro_x'] = float(data[1])
+                    self.imu_data['std_dev']['gyro_y'] = float(data[2])
+                    self.imu_data['std_dev']['gyro_z'] = float(data[3])
+
+                elif label == "STD_YPR":
+                    self.imu_data['std_dev']['yaw'] = float(data[1])
+                    self.imu_data['std_dev']['pitch'] = float(data[2])
+                    self.imu_data['std_dev']['roll'] = float(data[3])
+        except (UnicodeDecodeError, ValueError, IndexError) as e:
+            print(f"Error procesando línea: {line} -> {e}")
+
+    def get_data(self):
+        return self.imu_data
 
 
 def compute_quaternion(theta):
     return tft.quaternion_from_euler(0, 0, theta)
 
-class VESCRPMListener:
-    def __init__(self, sync_obj):
-        self.sync = sync_obj
-        rospy.Subscriber("vesc/rpm", Int32, self.rpm_callback)
+class RPMReader:
+    def __init__(self, port, baudrate=115200):
+        self.rpm_fl = 0.0  # Front Left
+        self.rpm_fr = 0.0  # Front Right
+        self.rpm_rl = 0.0  # Rear Left
+        self.rpm_rr = 0.0  # Rear Right
 
-    def rpm_callback(self, msg):
-        self.sync.update_rpm(msg.data)
+        self.port = port
+        self.baudrate = baudrate
+        self.ser = None
+        self.thread = None
+        self.running = False
+
+        self.lock = threading.Lock()
+
+    def start(self):
+        try:
+            self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
+            self.running = True
+            self.thread = threading.Thread(target=self.read_loop)
+            self.thread.daemon = True
+            self.thread.start()
+            print("[RPMReader] Lectura serial iniciada.")
+        except serial.SerialException as e:
+            print("[RPMReader] Error al abrir puerto serial:", e)
+
+    def stop(self):
+        self.running = False
+        if self.thread:
+            self.thread.join()
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+            print("[RPMReader] Lectura serial detenida.")
+
+    def read_loop(self):
+        while self.running:
+            try:
+                line = self.ser.readline().decode('utf-8').strip()
+                self.update_from_serial(line)
+            except Exception as e:
+                print("[RPMReader] Error leyendo del serial:", e)
+
+    def update_from_serial(self, line):
+        if line.startswith("RPM_ALL"):
+            try:
+                parts = line.strip().split(",")
+                if len(parts) == 5:
+                    with self.lock:
+                        self.rpm_fl = float(parts[1])
+                        self.rpm_fr = float(parts[2])
+                        self.rpm_rl = float(parts[3])
+                        self.rpm_rr = float(parts[4])
+                else:
+                    print("[RPMReader] Formato incorrecto:", line)
+            except (ValueError, IndexError) as e:
+                print("[RPMReader] Error al parsear la línea:", line)
+                print("→", e)
+
+    def get_all_rpms(self):
+        with self.lock:
+            return self.rpm_fl, self.rpm_fr, self.rpm_rl, self.rpm_rr
+
+    def __str__(self):
+        with self.lock:
+            return (f"RPMs - FL: {self.rpm_fl:.2f}, FR: {self.rpm_fr:.2f}, "
+                    f"RL: {self.rpm_rl:.2f}, RR: {self.rpm_rr:.2f}")
 
 
 class CoordinatesListener:
@@ -103,28 +203,29 @@ class CoordinatesListener:
     def get_new_coords(self):
         return self.rock_coords
 
+
 class SynchronizedData:
     def __init__(self):
         self.lock = Lock()
         self.last_update_time = 0
         self.imu_data = {}
-        self.rpm = 0
+        self.rpm_data = (0, 0, 0, 0)
 
     def update_imu(self, imu_dict):
         with self.lock:
             self.imu_data = imu_dict
             self.last_update_time = time.time()
 
-    def update_rpm(self, rpm_value):
+    def update_rpm(self, rpm_tuple):
         with self.lock:
-            self.rpm = rpm_value
+            self.rpm_data = rpm_tuple
             self.last_update_time = time.time()
 
     def get_latest_data(self):
         with self.lock:
             return {
                 'imu': self.imu_data,
-                'rpm': self.rpm,
+                'rpm': self.rpm_data,
                 'timestamp': self.last_update_time
             }
 
@@ -157,3 +258,4 @@ def send_rpm_command(ser, rpm1, rpm2, rpm3, rpm4):
         print(f"Enviado: {command.strip()}")
     except serial.SerialException as e:
         print(f"Error al enviar el comando: {e}")
+        
