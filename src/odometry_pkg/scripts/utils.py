@@ -196,7 +196,6 @@ class RPMReader:
                 f"RR: {self.rpm_4:.2f} (σ={self.std_4:.2f})")
 
 
-
 class CoordinatesListener:
     def __init__(self):
         self.rock_coords = ListQueueSimple()
