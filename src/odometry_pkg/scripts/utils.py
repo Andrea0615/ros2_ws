@@ -5,7 +5,7 @@ import tf.transformations as tft
 from std_msgs.msg import Int32
 from std_msgs.msg import Float32
 from geometry_msgs.msg import Point
-from threading import Lock
+from threading import Lock, Thread
 import time 
 import serial 
 
@@ -183,12 +183,12 @@ class RPMReader:
 
     def get_all_rpms(self):
         with self.lock:
-            return self.rpm_fl, self.rpm_fr, self.rpm_rl, self.rpm_rr
+            return self.rpm_1, self.rpm_3, self.rpm_2, self.rpm_4
 
     def __str__(self):
         with self.lock:
-            return (f"RPMs - FL: {self.rpm_fl:.2f}, FR: {self.rpm_fr:.2f}, "
-                    f"RL: {self.rpm_rl:.2f}, RR: {self.rpm_rr:.2f}")
+            return (f"RPMs - FL: {self.rpm_1:.2f}, FR: {self.rpm_3:.2f}, "
+                    f"RL: {self.rpm_2:.2f}, RR: {self.rpm_4:.2f}")
 
 
 class CoordinatesListener:

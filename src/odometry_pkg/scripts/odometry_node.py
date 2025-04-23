@@ -4,7 +4,8 @@ from nav_msgs.msg import Odometry
 from odometry.msg import WheelInfo
 from controller import angulo_ackermann, find_look_ahead_point, generar_ruta_prioritaria, find_stopping_point, robot_stop
 from efk import compute_F, predict_state
-from utils import compute_quaternion, VESCRPMListener, IMUListener, CoordinatesListener, SynchronizedData, initialize_serial,send_rpm_command
+from utils import compute_quaternion, RPMReader, IMUListener, CoordinatesListener, SynchronizedData, initialize_serial,send_rpm_command
+import time
 
 # Parámetros de conexión serial (ajusta según tu sistema: 'COM6' para Windows o '/dev/ttyUSB0' para Linux/Mac)
 SERIAL_PORT = 'COM6'
@@ -16,6 +17,9 @@ def main():
     odom_pub = rospy.Publisher("/odom", Odometry, queue_size=10)
     wheel_pub = rospy.Publisher("/wheel_setter", WheelInfo, queue_size=10)
     rate = rospy.Rate(20)  # 20 Hz
+    
+    start_time = time.time()  # Guardar el tiempo de inicio
+
 
     dt = 0.05
     lookAheadDist = 1.5
@@ -39,7 +43,7 @@ def main():
     
     sync_data = SynchronizedData()
     imu_listener = IMUListener(sync_data)
-    rpm_listener = VESCRPMListener(sync_data)
+    rpm_listener = RPMReader(sync_data, port= SERIAL_PORT) 
 
     # Inicializar la conexión serial para enviar comandos de RPM
     ser = initialize_serial(SERIAL_PORT, BAUD_RATE, TIMEOUT)
@@ -48,6 +52,8 @@ def main():
 
     while not rospy.is_shutdown():
         # Get next waypoint
+        elapsed_time = time.time() - start_time  # Calculamos el tiempo transcurrido
+
         piedras = coordenadas_camara.get_new_coords()
         piedra_x = piedras[]
         piedra_dist = piedras[]
