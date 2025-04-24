@@ -154,10 +154,10 @@ class RPMReader:
                     self.rpm_2 = float(parts[3])
                     self.rpm_4 = float(parts[4])
 
-                    self._update_buffer_and_std(self.rpm_1, self.buffer_1, 'fl')
-                    self._update_buffer_and_std(self.rpm_3, self.buffer_3, 'fr')
-                    self._update_buffer_and_std(self.rpm_2, self.buffer_2, 'rl')
-                    self._update_buffer_and_std(self.rpm_4, self.buffer_4, 'rr')
+                    self._update_buffer_and_std(self.rpm_1, self.buffer_1, 'f1')
+                    self._update_buffer_and_std(self.rpm_3, self.buffer_3, 'f3')
+                    self._update_buffer_and_std(self.rpm_2, self.buffer_2, 'r2')
+                    self._update_buffer_and_std(self.rpm_4, self.buffer_4, 'r4')
                 else:
                     print("[RPMReader] Formato incorrecto:", line)
             except (ValueError, IndexError) as e:
@@ -182,6 +182,18 @@ class RPMReader:
 
     def _ema(self, prev, current):
         return self.alpha * current + (1 - self.alpha) * prev
+    
+    def _update_linear_velocity(self):
+        # Calcular la circunferencia de la rueda
+        wheel_circumference = 2 * np.pi * 0.12
+
+        # Convertir RPM a velocidad lineal para cada rueda
+        rpms = [self.rpm_1, self.rpm_3, self.rpm_2, self.rpm_4]
+        velocities = [(rpm / 60.0) * wheel_circumference for rpm in rpms]
+
+        self.linear_velocity = np.mean(velocities)
+        self.linear_velocity_std = np.std(velocities)
+        return self.linear_velocity, self.linear_velocity_std
 
     def get_all_rpms(self):
         return self.rpm_1, self.rpm_3, self.rpm_2, self.rpm_4

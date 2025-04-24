@@ -38,7 +38,7 @@ def main():
     xhat = np.array([odom_x, odom_y, odom_theta, 0.0, 0.0, 0.0])
     P = np.identity(6) * 0.01
     Q = np.diag([0.001, 0.001, 0.0005, 0.001, 0.001, 0.0001])
-    R = np.diag([0.02, 0.02, 0.01, 0.05, 0.005])
+    R = np.diag([0.02, 0.02, 0.01, rpm_listener.std_3+imu_data["std_dev"]["accel_x"],imu_data["std_dev"]["gyro_z"]])
 
     idxWaypoint = 0
     waypoints = []  # Dynamic waypoint list
@@ -51,9 +51,10 @@ def main():
     rate = rospy.Rate(10)
 
     while not rospy.is_shutdown():
-        # Get next waypoint
-        elapsed_time = time.time() - start_time  # Calculamos el tiempo transcurrido
+        
+        elapsed_time = time.time() - start_time  # Calculamos el tiempo transcurrido para deternerse antes de los 10min
 
+        # Get next waypoint
         piedras = coordenadas_camara.get_new_coords()
         piedra_x = piedras[]
         piedra_dist = piedras[]
