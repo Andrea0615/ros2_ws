@@ -1,13 +1,13 @@
 # utils.py
 import numpy as np
-import rospy
-import tf.transformations as tft
-from std_msgs.msg import Int32
-from std_msgs.msg import Float32
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Int32, Float32
 from geometry_msgs.msg import Point
 from threading import Lock, Thread
-import time 
-import serial 
+import time
+import serial
+import tf_transformations as tft
 
 class ListQueueSimple:
     """
@@ -45,8 +45,9 @@ class ListQueueSimple:
         with self.lock:
             return len(self.items)
 
-class IMUListener:
-    def __init__(self, serial_port='/dev/ttyUSB0', baud_rate=115200, timeout=1): #Cambiar puerto serial
+class IMUListener(Node):
+    def __init__(self, serial_port='/dev/ttyUSB0', baud_rate=115200, timeout=1):  # Cambiar puerto serial
+        super().__init__('imu_listener')
         self.serial_port = serial_port
         self.baud_rate = baud_rate
         self.timeout = timeout
@@ -66,16 +67,16 @@ class IMUListener:
     def initialize_serial(self):
         try:
             ser = serial.Serial(self.serial_port, self.baud_rate, timeout=self.timeout)
-            print(f"Conectado al puerto {self.serial_port} a {self.baud_rate} baudios.")
+            self.get_logger().info(f"Conectado al puerto {self.serial_port} a {self.baud_rate} baudios.")
             time.sleep(2)
             return ser
         except serial.SerialException as e:
-            print(f"Error al conectar al puerto {self.serial_port}: {e}")
+            self.get_logger().error(f"Error al conectar al puerto {self.serial_port}: {e}")
             return None
 
     def read_data(self):
         if self.ser is None or not self.ser.is_open:
-            print("Error: No hay conexión serial activa.")
+            self.get_logger().error("Error: No hay conexión serial activa.")
             return
 
         try:
@@ -114,7 +115,7 @@ class IMUListener:
                     self.imu_data['std_dev']['pitch'] = float(data[2])
                     self.imu_data['std_dev']['roll'] = float(data[3])
         except (UnicodeDecodeError, ValueError, IndexError) as e:
-            print(f"Error procesando línea: {line} -> {e}")
+            self.get_logger().error(f"Error procesando línea: {line} -> {e}")
 
     def get_data(self):
         return self.imu_data
@@ -158,14 +159,14 @@ class RPMReader:
                     self._update_buffer_and_std(self.rpm_3, self.buffer_3, 'f3')
                     self._update_buffer_and_std(self.rpm_2, self.buffer_2, 'r2')
                     self._update_buffer_and_std(self.rpm_4, self.buffer_4, 'r4')
-                    
+
                     self._update_linear_velocity()
 
                 else:
-                    print("[RPMReader] Formato incorrecto:", line)
+                    self.get_logger().warn(f"[RPMReader] Formato incorrecto: {line}")
             except (ValueError, IndexError) as e:
-                print("[RPMReader] Error al parsear la línea:", line)
-                print("→", e)
+                self.get_logger().warn(f"[RPMReader] Error al parsear la línea: {line}")
+                self.get_logger().warn(f"→ {e}")
 
     def _update_buffer_and_std(self, value, buffer, wheel):
         buffer.append(value)
@@ -213,10 +214,11 @@ class RPMReader:
                 f"RR: {self.rpm_4:.2f} (σ={self.std_4:.2f})")
 
 
-class CoordinatesListener:
+class CoordinatesListener(Node):
     def __init__(self):
+        super().__init__('coordinates_listener')
         self.rock_coords = ListQueueSimple()
-        rospy.Subscriber("obstacle_coordinates", Point, self.callback)
+        self.create_subscription(Point, "obstacle_coordinates", self.callback, 10)
 
     def callback(self, msg):
         coord = [msg.x, msg.y]  # Use list for compatibility with waypoints
@@ -265,7 +267,7 @@ def initialize_serial(port, baud_rate, timeout):
     except serial.SerialException as e:
         print(f"Error al conectar al puerto {port}: {e}")
         return None
-    
+
 def send_rpm_command(ser, rpm1, rpm2, rpm3, rpm4):
     """Envía una cadena con los RPM de las 4 llantas en el formato M1:rpm1;M2:rpm2;M3:rpm3;M4:rpm4\n."""
     if ser is None or not ser.is_open:
@@ -279,5 +281,4 @@ def send_rpm_command(ser, rpm1, rpm2, rpm3, rpm4):
         ser.write(command.encode('utf-8'))
         print(f"Enviado: {command.strip()}")
     except serial.SerialException as e:
-        print(f"Error al enviar el comando: {e}")
-        
+        print(f"Error al enviar el comando: {e}")

@@ -1,5 +1,8 @@
 # ekf.py
 import numpy as np
+from rclpy.logging import get_logger
+
+logger = get_logger('ekf_utils')
 
 def compute_F(x, u, imu_data, dt):
     """
@@ -25,7 +28,6 @@ def predict_state(x, u, imu_data, L, dt):
     Predice el siguiente estado del sistema usando la función de transición.
     """
     v = u[0]
-    # delta se incluye en u pero no se usa explícitamente en este modelo
     theta = x[2]
     a_x = imu_data['accel_filtered']['x']
     a_y = imu_data['accel_filtered']['y']
