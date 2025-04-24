@@ -38,7 +38,7 @@ def main():
     xhat = np.array([odom_x, odom_y, odom_theta, 0.0, 0.0, 0.0])
     P = np.identity(6) * 0.01
     Q = np.diag([0.001, 0.001, 0.0005, 0.001, 0.001, 0.0001])
-    R = np.diag([0.02, 0.02, 0.01, rpm_listener.std_3+imu_data["std_dev"]["accel_x"],imu_data["std_dev"]["gyro_z"]])
+    R = np.diag([0.02, 0.02, 0.01,rpm_listener["linear_velocity_std"]+imu_listener["std_dev"]["accel_x"],imu_listener["std_dev"]["gyro_z"]])
 
     idxWaypoint = 0
     waypoints = []  # Dynamic waypoint list
@@ -48,7 +48,7 @@ def main():
     # Inicializar la conexión serial para enviar comandos de RPM
     ser = initialize_serial(SERIAL_PORT, BAUD_RATE, TIMEOUT)
     
-    rate = rospy.Rate(10)
+    #rate = rospy.Rate(10)
 
     while not rospy.is_shutdown():
         
@@ -110,7 +110,7 @@ def main():
         sensor_data = sync_data.get_latest_data()
         real_RPM = sensor_data['rpm']
         imu_data = sensor_data['imu']
-        real_velocity = (real_RPM / 60.0) * wheelCircumference
+        real_velocity = rpm_listener["linear_velocity"]
         RPM = (desiredSpeed / wheelCircumference) * 60
         
         # Si lo que se desea es enviar el comando de RPM calculado, se puede elegir entre:
@@ -165,7 +165,6 @@ def main():
         xhat = xhat_pred + K @ (z - H @ xhat_pred)
         P = (np.eye(6) - K @ H) @ P_pred
 
-        t_total += dt
 
         # Preparar y publicar el mensaje de odometría
         odom_msg = Odometry()

@@ -158,6 +158,9 @@ class RPMReader:
                     self._update_buffer_and_std(self.rpm_3, self.buffer_3, 'f3')
                     self._update_buffer_and_std(self.rpm_2, self.buffer_2, 'r2')
                     self._update_buffer_and_std(self.rpm_4, self.buffer_4, 'r4')
+                    
+                    self._update_linear_velocity()
+
                 else:
                     print("[RPMReader] Formato incorrecto:", line)
             except (ValueError, IndexError) as e:
@@ -193,6 +196,8 @@ class RPMReader:
 
         self.linear_velocity = np.mean(velocities)
         self.linear_velocity_std = np.std(velocities)
+    
+    def get_linear_velocity_with_std(self):
         return self.linear_velocity, self.linear_velocity_std
 
     def get_all_rpms(self):
