@@ -1,0 +1,2 @@
+Para correr el launch code, corre la siguiente línea de código en la terminal:
+ros2 launch odometry_pkg robot_launch.py
