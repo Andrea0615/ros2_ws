@@ -227,22 +227,25 @@ class CoordinatesListener(Node):
     def get_new_coords(self):
         return self.rock_coords
 
-
 class SynchronizedData:
     def __init__(self):
         self.lock = Lock()
         self.last_update_time = 0
         self.imu_data = {}
         self.rpm_data = (0, 0, 0, 0)
+        self.linear_velocity = 0.0
+        self.linear_velocity_std = 0.0
 
     def update_imu(self, imu_dict):
         with self.lock:
             self.imu_data = imu_dict
             self.last_update_time = time.time()
 
-    def update_rpm(self, rpm_tuple):
+    def update_rpm(self, rpm_tuple, linear_vel=0.0, linear_std=0.0):
         with self.lock:
             self.rpm_data = rpm_tuple
+            self.linear_velocity = linear_vel
+            self.linear_velocity_std = linear_std
             self.last_update_time = time.time()
 
     def get_latest_data(self):
@@ -250,8 +253,11 @@ class SynchronizedData:
             return {
                 'imu': self.imu_data,
                 'rpm': self.rpm_data,
+                'linear_velocity': self.linear_velocity,
+                'linear_velocity_std': self.linear_velocity_std,
                 'timestamp': self.last_update_time
             }
+
 
 def initialize_serial(port, baud_rate, timeout):
     """Inicializa la conexión serial y retorna el objeto serial."""
