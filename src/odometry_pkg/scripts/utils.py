@@ -175,13 +175,13 @@ class RPMReader:
 
         if len(buffer) == self.window_size:
             std = np.std(buffer)
-            if wheel == '1':
+            if wheel == 'f1':
                 self.std_1 = self._ema(self.std_1, std)
-            elif wheel == '3':
+            elif wheel == 'f3':
                 self.std_3 = self._ema(self.std_3, std)
-            elif wheel == '2':
+            elif wheel == 'r2':
                 self.std_2 = self._ema(self.std_2, std)
-            elif wheel == '4':
+            elif wheel == 'r4':
                 self.std_4 = self._ema(self.std_4, std)
 
     def _ema(self, prev, current):
