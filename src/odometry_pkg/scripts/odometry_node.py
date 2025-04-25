@@ -9,7 +9,7 @@ from utils import compute_quaternion, RPMReader, IMUListener, CoordinatesListene
 import time
 
 # Parámetros de conexión serial (ajusta según tu sistema: 'COM6' para Windows o '/dev/ttyUSB0' para Linux/Mac)
-SERIAL_PORT = 'COM6'
+SERIAL_PORT = '/dev/ttyUSB0'
 BAUD_RATE = 115200
 TIMEOUT = 1
 
