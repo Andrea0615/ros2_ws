@@ -1,54 +1,57 @@
-#!/usr/bin/env python
-import rospy
+#!/usr/bin/env python3
+
+import rclpy
+from rclpy.node import Node
 import tf2_ros
 import tf2_geometry_msgs
 import yaml
 import os
+
 from geometry_msgs.msg import PointStamped
 from visualization_msgs.msg import Marker
-from std_msgs.msg import Float32MultiArray  # Assuming rocks come as [x, y] in camera/base frame
+from std_msgs.msg import Float32MultiArray
 
-class RockMarkerPublisher:
+class RockMarkerPublisher(Node):
     def __init__(self):
-        rospy.init_node("rock_marker_publisher")
+        super().__init__("rock_marker_publisher")
 
         # Publisher for markers
-        self.marker_pub = rospy.Publisher("/rock_markers", Marker, queue_size=10)
+        self.marker_pub = self.create_publisher(Marker, "/rock_markers", 10)
 
         # Subscriber for rock coordinates
-        rospy.Subscriber("/detected_rocks", Float32MultiArray, self.rock_callback)
+        self.create_subscription(Float32MultiArray, "/detected_rocks", self.rock_callback, 10)
 
         # TF setup
         self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
         # Storage
         self.rock_id = 0
         self.rocks = []
-        self.storage_path = rospy.get_param("~storage_path", "rocks.yaml")
+        self.storage_path = self.declare_parameter("storage_path", "rocks.yaml").get_parameter_value().string_value
 
-        rospy.on_shutdown(self.save_rocks_to_file)
-        rospy.sleep(1)
+        # Shutdown callback
+        self.add_on_shutdown(self.save_rocks_to_file)
+
         self.load_and_publish_existing()
 
     def rock_callback(self, msg):
         x_in, y_in = msg.data[0], msg.data[1]
 
         point_in = PointStamped()
-        point_in.header.frame_id = "camera_link"  # Adjust if needed
-        point_in.header.stamp = rospy.Time.now()
+        point_in.header.frame_id = "camera_link"
+        point_in.header.stamp = self.get_clock().now().to_msg()
         point_in.point.x = x_in
         point_in.point.y = y_in
         point_in.point.z = 0.0
 
         try:
-            transform = self.tf_buffer.lookup_transform("map", point_in.header.frame_id, rospy.Time(0), rospy.Duration(1.0))
+            transform = self.tf_buffer.lookup_transform("map", point_in.header.frame_id, rclpy.time.Time())
             point_out = tf2_geometry_msgs.do_transform_point(point_in, transform)
         except Exception as e:
-            rospy.logwarn("Transform failed: %s", e)
+            self.get_logger().warn(f"Transform failed: {e}")
             return
 
-        # Save and publish
         rock_coords = {"x": point_out.point.x, "y": point_out.point.y}
         self.rocks.append(rock_coords)
         self.publish_marker(rock_coords["x"], rock_coords["y"])
@@ -56,7 +59,7 @@ class RockMarkerPublisher:
     def publish_marker(self, x, y):
         marker = Marker()
         marker.header.frame_id = "map"
-        marker.header.stamp = rospy.Time.now()
+        marker.header.stamp = self.get_clock().now().to_msg()
         marker.ns = "rocks"
         marker.id = self.rock_id
         marker.type = Marker.SPHERE
@@ -73,13 +76,17 @@ class RockMarkerPublisher:
         marker.color.b = 0.0
         marker.color.a = 1.0
 
+        # Add lifetime here ➔ marker disappears after 30 seconds (or change the value)
+        from builtin_interfaces.msg import Duration
+        marker.lifetime = Duration(sec=30)
+
         self.marker_pub.publish(marker)
         self.rock_id += 1
 
     def save_rocks_to_file(self):
         with open(self.storage_path, 'w') as f:
             yaml.dump({'rocks': self.rocks}, f)
-        rospy.loginfo("Saved %d rocks to %s", len(self.rocks), self.storage_path)
+        self.get_logger().info(f"Saved {len(self.rocks)} rocks to {self.storage_path}")
 
     def load_and_publish_existing(self):
         if not os.path.exists(self.storage_path):
@@ -90,11 +97,14 @@ class RockMarkerPublisher:
                 for rock in data['rocks']:
                     self.publish_marker(rock['x'], rock['y'])
                 self.rock_id = len(data['rocks'])
-                rospy.loginfo("Re-published %d saved rocks", self.rock_id)
+                self.get_logger().info(f"Re-published {self.rock_id} saved rocks")
+
+def main(args=None):
+    rclpy.init(args=args)  # Start ROS2 communication
+    node = RockMarkerPublisher()  # Create the node
+    rclpy.spin(node)  # Keep it alive and listen for messages
+    node.destroy_node()  # Clean up the node
+    rclpy.shutdown()  # Shut down ROS2
 
 if __name__ == "__main__":
-    try:
-        RockMarkerPublisher()
-        rospy.spin()
-    except rospy.ROSInterruptException:
-        pass
+    main()
